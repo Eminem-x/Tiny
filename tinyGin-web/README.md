@@ -1,4 +1,4 @@
-# Go Web Framework TinyGin form Scratch
+# Go Web Framework TinyGin From Scratch
 
 The web framework of the Go language that I first came into contact with was Gin.
 
