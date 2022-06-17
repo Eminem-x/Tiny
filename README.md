@@ -1,2 +1,4 @@
-# TinyGoFramework
-If you have learnt gin, gorm and etc, why not try to implement it yourself.
+# Tiny
+> *What I cannot create, I do not understand —— Richard Feynman.*
+
+If you have learnt something, why not try to implement it yourself.
