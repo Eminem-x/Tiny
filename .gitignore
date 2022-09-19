@@ -1,4 +1,6 @@
 .idea
 .DS_Store
+*.db
+*.rdb
 *.swp
 *.sum

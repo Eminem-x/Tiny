@@ -6,12 +6,14 @@ import (
 	"tinyGorm/log"
 )
 
+// 封装 Session 是为了多次复用，开启一次会话，可以执行多次 SQL
+
 // Session keep a pointer to sql.DB and provides all execution of
 // all kind of database operations
 type Session struct {
 	db      *sql.DB
-	sql     strings.Builder
-	sqlVars []interface{}
+	sql     strings.Builder // 拼接 sql 语句
+	sqlVars []interface{}   // sql 语句中占位符的对应值
 }
 
 // New creates an instance of Session

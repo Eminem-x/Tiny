@@ -6,6 +6,9 @@ import (
 	"tinyGorm/session"
 )
 
+// Engine 是用户与 ORM 交互的入口，通过其实例创建具体的 Session
+// 负责交互前的准备（比如连接/测试数据库），交互后的收尾（关闭连接）
+
 // Engine is the main struct of tinyGorm, manages all db sessions and transactions.
 type Engine struct {
 	db *sql.DB
