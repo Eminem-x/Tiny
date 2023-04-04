@@ -15,7 +15,7 @@ type User struct {
 
 func testRecordInit(t *testing.T) *Session {
 	t.Helper()
-	s := New().Model(&User{})
+	s := NewSession().Model(&User{})
 	err1 := s.DropTable()
 	err2 := s.CreateTable()
 	_, err3 := s.Insert(user1, user2)
