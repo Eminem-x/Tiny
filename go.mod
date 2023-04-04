@@ -1,4 +1,4 @@
-module tinyGorm
+module github.com/Eminem-x/Tiny
 
 go 1.18
 
