@@ -31,12 +31,6 @@ func main() {
 	for i := 0; i < 5; i++ {
 		mockConnect(uint64(i), cc)
 	}
-	time.Sleep(time.Second)
-	// 并发请求
-	for i := 0; i < 5; i++ {
-		go mockConnect(uint64(i), cc)
-	}
-	time.Sleep(3 * time.Second)
 }
 
 func startServer(addr chan string) {
