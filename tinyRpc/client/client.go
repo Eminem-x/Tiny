@@ -11,7 +11,7 @@ import (
 	"tinyRpc/codec"
 )
 
-// Call represents an active RPC
+// Call represents an active RPC 承载一次 rpc 调用所需要的信息
 type Call struct {
 	Seq           uint64
 	ServiceMethod string      // format "<service>.<method>"
@@ -21,6 +21,7 @@ type Call struct {
 	Done          chan *Call  // Strobes when call is complete
 }
 
+// done 为了支持异步调用, 添加 Done 字段, 当调用结束时, 会调用 call.done() 通知调用方
 func (call *Call) done() {
 	call.Done <- call
 }
@@ -29,15 +30,16 @@ func (call *Call) done() {
 // There may be multiple outstanding Calls associated with a single Client
 // and a Client may be used by multiple goroutines simultaneously
 type Client struct {
-	cc       codec.Codec // 消息编解码器
-	opt      *Option
-	sending  sync.Mutex // protect following
-	header   codec.Header
-	mu       sync.Mutex // protect following
-	seq      uint64
-	pending  map[uint64]*Call // 存储未处理完的请求, 键是编号, 值是 call 示例
-	closing  bool             // user has called Close
-	shutdown bool             // server has told us to stop
+	cc      codec.Codec // 消息编解码器
+	opt     *Option
+	sending sync.Mutex // protect following
+	header  codec.Header
+	mu      sync.Mutex       // protect following
+	seq     uint64           // 用于给发送的请求编号, 每个请求拥有唯一编号
+	pending map[uint64]*Call // 存储未处理完的请求, 键是编号, 值是 call 示例
+	// closing 和 shutdown 任意一个值置为 true, 则表示 Client 处于不可用状态, 但是二者有些许差别
+	closing  bool // user has called Close
+	shutdown bool // server has told us to stop
 }
 
 var _ io.Closer = (*Client)(nil)
@@ -97,6 +99,36 @@ func (client *Client) terminateCalls(err error) {
 	}
 }
 
+func (client *Client) receive() {
+	var err error
+	for err == nil {
+		var h codec.Header
+		if err = client.cc.ReadHeader(&h); err != nil {
+			break
+		}
+		call := client.removeCall(h.Seq)
+		switch {
+		// 可能是请求没有发送完整, 或者因为其他原因被取消, 但是服务端仍旧处理了
+		case call == nil:
+			err = client.cc.ReadBody(nil)
+		// 服务端处理出错, 即 h.Error 不为空
+		case h.Error != "":
+			call.Error = fmt.Errorf(h.Error)
+			err = client.cc.ReadBody(nil)
+			call.done()
+		// 服务端处理正常, 那么需要从 body 中读取 Reply 的值
+		default:
+			err = client.cc.ReadBody(call.Reply)
+			if err != nil {
+				call.Error = errors.New("reading body " + err.Error())
+			}
+			call.done()
+		}
+	}
+	// error occurs, so terminateCalls pending calls
+	client.terminateCalls(err)
+}
+
 func (client *Client) send(call *Call) {
 	// make sure that the client will send a complete request
 	client.sending.Lock()
@@ -128,39 +160,24 @@ func (client *Client) send(call *Call) {
 	}
 }
 
-func (client *Client) receive() {
-	var err error
-	for err == nil {
-		var h codec.Header
-		if err = client.cc.ReadHeader(&h); err != nil {
-			break
-		}
-		call := client.removeCall(h.Seq)
-		switch {
-		// 可能是请求没有发送完整, 或者因为其他原因被取消, 但是服务端仍旧处理了
-		case call == nil:
-			err = client.cc.ReadBody(nil)
-		// 服务端处理出错, 即 h.Error 不为空
-		case h.Error != "":
-			call.Error = fmt.Errorf(h.Error)
-			err = client.cc.ReadBody(nil)
-			call.done()
-		// 服务端处理正常, 那么需要从 body 中读取 Reply 的值
-		default:
-			err = client.cc.ReadBody(call.Reply)
-			if err != nil {
-				call.Error = errors.New("reading body " + err.Error())
-			}
-			call.done()
-		}
-	}
-	// error occurs, so terminateCalls pending calls
-	client.terminateCalls(err)
-}
-
 // Go invokes the function asynchronously and returns the Call structure representing the invocation.
 func (client *Client) Go(serviceMethod string, args, reply interface{}, done chan *Call) *Call {
 	// Go 是一个异步接口, 返回 call 实例
+	// Go 返回了 call, call.Done 是一个信道, 如果直接阻塞就是同步调用, 类似于 Call 里的做法,
+	// 如果不想阻塞, 新启动一个协程等待结果, 其他函数继续往下执行即可
+	// call := client.Go( ... )
+	// # 新启动协程，异步等待
+	// go func(call *Call) {
+	//	 select {
+	//	 	 <-call.Done:
+	//	 	 # do something
+	//	 	 <-otherChan:
+	//	 	 # do something
+	//	 }
+	// }(call)
+	//
+	// otherFunc() # 不阻塞，继续执行其他函数
+
 	if done == nil {
 		done = make(chan *Call, 10)
 	} else if cap(done) == 0 {
@@ -216,6 +233,7 @@ func newClientCodec(cc codec.Codec, opt *Option) *Client {
 
 // Dial connects to an RPC server at the specified network address
 func Dial(network, address string, opts ...*Option) (client *Client, err error) {
+	// 便于用户传入服务端地址, 创建 Client 实例
 	opt, err := parseOptions(opts...)
 	if err != nil {
 		return nil, err
