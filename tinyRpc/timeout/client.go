@@ -181,7 +181,7 @@ func (client *Client) Go(serviceMethod string, args, reply interface{}, done cha
 // Call invokes the named function, waits for it to complete, and returns its error status.
 func (client *Client) Call(ctx context.Context, serviceMethod string, args, reply interface{}) error {
 	// Call 是对 Go 的封装，阻塞 call.Done，等待响应返回，是一个同步接口
-	call := <-client.Go(serviceMethod, args, reply, make(chan *Call, 1)).Done
+	call := client.Go(serviceMethod, args, reply, make(chan *Call, 1))
 	// 可以使用 context.WithTimeout 创建具备超时检测能力的 context 对象来控制
 	select {
 	case <-ctx.Done():

@@ -106,6 +106,7 @@ func (server *Server) serveCodec(cc codec.Codec, opt *Option) {
 		}
 		wg.Add(1)
 		// 2. 处理 & 回复请求
+		log.Println("opt.HandleTimeout: ", opt.HandleTimeout)
 		go server.handleRequest(cc, req, sending, wg, opt.HandleTimeout)
 	}
 	wg.Wait()
