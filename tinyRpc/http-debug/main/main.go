@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 	"tinyRpc"
@@ -17,29 +19,17 @@ func (f Foo) Sum(args Args, reply *int) error {
 	return nil
 }
 
-func startServer(addr chan string) {
-	// 1. 定义结构体 Foo 和方法 Sum
-	// 2. 注册 Foo 到 Server 中, 并启动 RPC 服务
-	// 3. 构造参数, 发送 rpc 请求, 并打印结果
+func startServer(addrCh chan string) {
 	var foo Foo
-	if err := tinyRpc.Register(&foo); err != nil {
-		log.Fatal("register error:", err)
-	}
-	// pick a free port
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		log.Fatal("network error:", err)
-	}
-	log.Println("start rpc server on", l.Addr())
-	addr <- l.Addr().String()
-	tinyRpc.Accept(l)
+	l, _ := net.Listen("tcp", ":9999")
+	_ = tinyRpc.Register(&foo)
+	tinyRpc.HandleHTTP()
+	addrCh <- l.Addr().String()
+	_ = http.Serve(l, nil)
 }
 
-func main() {
-	log.SetFlags(0)
-	addr := make(chan string)
-	go startServer(addr)
-	client, _ := tinyRpc.Dial("tcp", <-addr)
+func call(addrCh chan string) {
+	client, _ := tinyRpc.DialHTTP("tcp", <-addrCh)
 	defer func() { _ = client.Close() }()
 
 	time.Sleep(time.Second)
@@ -51,12 +41,18 @@ func main() {
 			defer wg.Done()
 			args := &Args{Num1: i, Num2: i * i}
 			var reply int
-			// serviceMethod 实际上还是 hardcode, 如何更便捷的知道想要调用方法的名城, 需要 IDL 分支
-			if err := client.Call("Foo.Sum", args, &reply); err != nil {
+			if err := client.Call(context.Background(), "Foo.Sum", args, &reply); err != nil {
 				log.Fatal("call Foo.Sum error:", err)
 			}
 			log.Printf("%d + %d = %d", args.Num1, args.Num2, reply)
 		}(i)
 	}
 	wg.Wait()
+}
+
+func main() {
+	log.SetFlags(0)
+	ch := make(chan string)
+	go call(ch)
+	startServer(ch)
 }

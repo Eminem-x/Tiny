@@ -263,7 +263,8 @@ func (server *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		log.Print("rpc hijacking ", req.RemoteAddr, ": ", err.Error())
 		return
 	}
-	_, _ = io.WriteString(conn, "HTTP/1.0"+connected+"\n\n")
+	// WriteString 内容格式不可修改
+	_, _ = io.WriteString(conn, "HTTP/1.0 "+connected+"\n\n")
 	server.ServeConn(conn)
 }
 
@@ -271,6 +272,8 @@ func (server *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (server *Server) HandleHTTP() {
 	// 只需要实现接口 Handler, 即可作为一个 Handler 处理 HTTP 请求, 接口 Handler 只定义了一个方法 ServeHTTP
 	http.Handle(defaultRPCPath, server)
+	http.Handle(defaultDebugPath, debugHTTP{server})
+	log.Println("rpc server debug path:", defaultDebugPath)
 }
 
 // HandleHTTP is a convenient approach for default server to register HTTP handlers
