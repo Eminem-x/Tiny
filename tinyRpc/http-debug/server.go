@@ -249,6 +249,9 @@ const (
 
 // ServeHTTP implements a http.Handle that answers RPC requests.
 func (server *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// 这是一段接管 HTTP 连接的代码, 所谓的接管 HTTP 连接, 是指这里接管了 HTTP 的 TCP 连接
+	// 也就是说 Golang 的内置 HTTP 库和 HTTPServer 库将不会管理这个 TCP 连接的生命周期, 这个生命周期已经划给 Hijacker 了
+	// 参考: https://blog.csdn.net/ya_feng/article/details/104354690
 	if req.Method != "CONNECT" {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusMethodNotAllowed)
