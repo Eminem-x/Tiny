@@ -84,8 +84,15 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 		return
 	}
 
+	// 4. 处理 tcp 粘包, 防止 gob 出错
+	cc := f(conn)
+	if err := json.NewEncoder(conn).Encode(opt); err != nil {
+		log.Println("rpc server: option err: ", err)
+		return
+	}
+
 	// 4. 交给 serverCodec 处理
-	server.serveCodec(f(conn), &opt)
+	server.serveCodec(cc, &opt)
 }
 
 // invalidRequest is a placeholder for response argv when error occurs

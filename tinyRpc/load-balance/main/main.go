@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"sync"
 	"time"
 	"tinyRpc"
@@ -42,6 +45,12 @@ func foo(xc *xclient.XClient, ctx context.Context, typ, serviceMethod string, ar
 }
 
 func main() {
+	go func() {
+		fmt.Println("pprof")
+		fmt.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+	time.Sleep(time.Second)
+
 	log.SetFlags(0)
 	ch1 := make(chan string)
 	ch2 := make(chan string)

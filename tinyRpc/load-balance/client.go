@@ -211,6 +211,12 @@ func NewClient(conn net.Conn, opt *Option) (*Client, error) {
 		return nil, err
 	}
 
+	if err := json.NewDecoder(conn).Decode(opt); err != nil {
+		log.Println("rpc client: option err: ", err)
+		_ = conn.Close()
+		return nil, err
+	}
+
 	// 协商好消息的编解码方式之后，再创建一个子协程调用 receive() 接收响应
 	return newClientCodec(f(conn), opt), nil
 }
