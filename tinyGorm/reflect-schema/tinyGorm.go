@@ -7,7 +7,7 @@ import (
 	"tinyGorm/session"
 )
 
-// Engine is the main struct of geeorm, manages all db sessions and transactions.
+// Engine is the main struct of tinyOrm, manages all db sessions and transactions.
 type Engine struct {
 	db      *sql.DB
 	dialect dialect.Dialect

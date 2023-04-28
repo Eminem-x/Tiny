@@ -6,7 +6,7 @@ import (
 )
 
 type Account struct {
-	ID       int `geeorm:"PRIMARY KEY"`
+	ID       int `tinyOrm:"PRIMARY KEY"`
 	Password string
 }
 

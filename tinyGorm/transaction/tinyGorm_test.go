@@ -23,7 +23,7 @@ func TestNewEngine(t *testing.T) {
 }
 
 type User struct {
-	Name string `geeorm:"PRIMARY KEY"`
+	Name string `tinyOrm:"PRIMARY KEY"`
 	Age  int
 }
 

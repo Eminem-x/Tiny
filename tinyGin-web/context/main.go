@@ -12,7 +12,7 @@ HTTP/1.1 200 OK
 Date: Mon, 12 Aug 2019 16:52:52 GMT
 Content-Length: 18
 Content-Type: text/html; charset=utf-8
-<h1>Hello Gee</h1>
+<h1>Hello tiny</h1>
 (2)
 $ curl "http://localhost:9999/hello?name=YuanHao"
 hello YuanHao, you're at /hello
