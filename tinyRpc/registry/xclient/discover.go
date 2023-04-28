@@ -2,8 +2,11 @@ package xclient
 
 import (
 	"errors"
+	"log"
 	"math"
 	"math/rand"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -84,4 +87,70 @@ func (d *MultiServicesDiscovery) GetAll() ([]string, error) {
 	servers := make([]string, len(d.servers), len(d.servers))
 	copy(servers, d.servers)
 	return servers, nil
+}
+
+type RegistryDiscovery struct {
+	*MultiServicesDiscovery
+	registry   string
+	timeout    time.Duration // timeout 服务列表的过期时间
+	lastUpdate time.Time     // lastUpdate 是代表最后从注册中心更新服务列表的时间
+}
+
+const defaultUpdateTimeout = time.Second * 10
+
+func NewRegistryDiscovery(registerAddr string, timeout time.Duration) *RegistryDiscovery {
+	if timeout == 0 {
+		timeout = defaultUpdateTimeout
+	}
+	d := &RegistryDiscovery{
+		MultiServicesDiscovery: NewMultiServerDiscovery(make([]string, 0)),
+		registry:               registerAddr,
+		timeout:                timeout,
+	}
+	return d
+}
+
+func (d *RegistryDiscovery) Update(servers []string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.servers = servers
+	d.lastUpdate = time.Now()
+	return nil
+}
+
+func (d *RegistryDiscovery) Refresh() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.lastUpdate.Add(d.timeout).After(time.Now()) {
+		return nil
+	}
+	log.Println("rpc registry: refresh servers from registry", d.registry)
+	resp, err := http.Get(d.registry)
+	if err != nil {
+		log.Println("rpc registry refresh err:", err)
+		return err
+	}
+	servers := strings.Split(resp.Header.Get("X-Geerpc-Servers"), ",")
+	d.servers = make([]string, 0, len(servers))
+	for _, server := range servers {
+		if strings.TrimSpace(server) != "" {
+			d.servers = append(d.servers, strings.TrimSpace(server))
+		}
+	}
+	d.lastUpdate = time.Now()
+	return nil
+}
+
+func (d *RegistryDiscovery) Get(mode SelectMode) (string, error) {
+	if err := d.Refresh(); err != nil {
+		return "", err
+	}
+	return d.MultiServicesDiscovery.Get(mode)
+}
+
+func (d *RegistryDiscovery) GetAll() ([]string, error) {
+	if err := d.Refresh(); err != nil {
+		return nil, err
+	}
+	return d.MultiServicesDiscovery.GetAll()
 }
